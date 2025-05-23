@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 import hexss
 
-hexss.check_packages('pillow', 'numpy', 'opencv-python', 'mss', auto_install=True)
+hexss.check_packages('pillow', 'numpy', 'opencv-python', 'mss', 'PyAutoGUI', auto_install=True)
 
 from PIL import ImageGrab
 import numpy as np
 import cv2
 import mss
+import pyautogui
 
 
 # Common base class for grabbers
@@ -41,6 +42,14 @@ class PillowGrabber(ScreenGrabber):
         return arr[:, :, ::-1].copy()
 
 
+class PyAutoGUIGrabber(ScreenGrabber):
+    def grab(self):
+        bbox = (self.left, self.top, self.left + self.width, self.top + self.height)
+        pil_img = pyautogui.screenshot(region=bbox)
+        arr = np.array(pil_img)
+        return arr[:, :, ::-1].copy()
+
+
 def benchmark(grabber, duration=10):
     frame_count = 0
     total_time = 0.0
@@ -55,6 +64,7 @@ def benchmark(grabber, duration=10):
         dt = (datetime.now() - t0).total_seconds()
         total_time += dt
         frame_count += 1
+    cv2.destroyAllWindows()
 
     fps = frame_count / total_time if total_time > 0 else 0
     print(f"[{grabber.__class__.__name__}] Duration: {duration}s, "
@@ -63,22 +73,33 @@ def benchmark(grabber, duration=10):
 
 
 def main():
-    region = {'left': 0, 'top': 0, 'width': 1920, 'height': 1080}
+    for i in range(3):
+        region = {'left': 0, 'top': 0, 'width': 1920, 'height': 1080}
 
-    print("Starting MSS benchmark...")
-    mss_fps = benchmark(MSSGrabber(region))
+        print("Starting MSS benchmark...")
+        mss_fps = benchmark(MSSGrabber(region))
 
-    print("Starting Pillow benchmark...")
-    pil_fps = benchmark(PillowGrabber(region))
+        print("Starting Pillow benchmark...")
+        pil_fps = benchmark(PillowGrabber(region))
 
-    print("\n=== Results ===")
-    print(f"MSS FPS    : {mss_fps:.2f}")
-    print(f"Pillow FPS : {pil_fps:.2f}")
+        print("Starting PyAutoGUI benchmark...")
+        pag_fps = benchmark(PyAutoGUIGrabber(region))
+
+        print("\n=== Results ===")
+        print(f"MSS FPS    : {mss_fps:.2f}")
+        print(f"Pillow FPS : {pil_fps:.2f}")
+        print(f"PyAutoGUI FPS : {pag_fps:.2f}")
+        print()
 
 
 if __name__ == "__main__":
     main()
 
-# === Results === (30/4/35 i5-13600k)
+# === Results === (30/4/25 i5-13600k)
 # MSS FPS    : 28.18
 # Pillow FPS : 17.63
+
+# === Results === (23/5/25 i9-13900)
+# MSS FPS    : 24.56
+# Pillow FPS : 19.25
+# PyAutoGUI FPS : 19.55
